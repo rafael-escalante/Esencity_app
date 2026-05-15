@@ -1,0 +1,49 @@
+name: parfum
+description: Sistema de Gestión de Perfumería — PARFUM
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.2.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # HTTP
+  dio: ^5.4.0
+
+  # Estado
+  provider: ^6.1.2
+
+  # Almacenamiento local (token JWT, sesión)
+  shared_preferences: ^2.2.3
+
+  # Navegación declarativa
+  go_router: ^13.2.0
+
+  # Gráficas de barras en reportes
+  fl_chart: ^0.67.0
+
+  # Imágenes de productos con caché
+  cached_network_image: ^3.3.1
+
+  # Subir imagen de producto
+  image_picker: ^1.0.7
+
+  # Formatear fechas y moneda
+  intl: ^0.19.0
+
+  # Comparación de modelos
+  equatable: ^2.0.5
+
+  # Iconos
+  cupertino_icons: ^1.0.6
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
