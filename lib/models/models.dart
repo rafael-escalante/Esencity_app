@@ -2,68 +2,9 @@ import 'package:equatable/equatable.dart';
 
 
 
-// ── Ítem de pedido ────────────────────────────────────────────────
-class OrderItemModel extends Equatable {
-  final int id;
-  final int productoId;
-  final String nombreProducto;
-  final int cantidad;
-  final double precioUnitario;
 
-  const OrderItemModel({
-    required this.id, required this.productoId, required this.nombreProducto,
-    required this.cantidad, required this.precioUnitario,
-  });
 
-  factory OrderItemModel.fromJson(Map<String, dynamic> j) => OrderItemModel(
-    id:              j['id'] as int,
-    productoId:      j['producto_id'] as int,
-    nombreProducto:  j['nombre_producto'] as String,
-    cantidad:        j['cantidad'] as int,
-    precioUnitario:  (j['precio_unitario'] as num).toDouble(),
-  );
 
-  double get subtotal => cantidad * precioUnitario;
-
-  @override
-  List<Object?> get props => [id, productoId, cantidad];
-}
-
-// ── Pedido ────────────────────────────────────────────────────────
-class OrderModel extends Equatable {
-  final int id;
-  final String clienteNombre;
-  final DateTime fecha;
-  final double total;
-  final String status;
-  final String? metodoPago;
-  final String? referencia;
-  final List<OrderItemModel> items;
-
-  const OrderModel({
-    required this.id, required this.clienteNombre, required this.fecha,
-    required this.total, required this.status, this.metodoPago,
-    this.referencia, this.items = const [],
-  });
-
-  factory OrderModel.fromJson(Map<String, dynamic> j) => OrderModel(
-    id:             j['id'] as int,
-    clienteNombre:  j['cliente_nombre'] as String,
-    fecha:          DateTime.parse(j['fecha'] as String),
-    total:          (j['total'] as num).toDouble(),
-    status:         j['status'] as String,
-    metodoPago:     j['metodo_pago'] as String?,
-    referencia:     j['referencia'] as String?,
-    items:          (j['items'] as List<dynamic>? ?? [])
-        .map((e) => OrderItemModel.fromJson(e as Map<String, dynamic>))
-        .toList(),
-  );
-
-  bool get canCancel => status == 'Pendiente';
-
-  @override
-  List<Object?> get props => [id, status, total];
-}
 
 // ── Ítem del carrito (local) ──────────────────────────────────────
 class CartItemModel extends Equatable {

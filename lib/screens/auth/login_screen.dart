@@ -17,7 +17,10 @@ class _LoginScreenState extends State<LoginScreen> {
   final _formKey   = GlobalKey<FormState>();
   final _emailCtrl = TextEditingController(text: '');
   final _passCtrl  = TextEditingController(text: '');
+  
   bool _obscure    = true;
+
+  
 
   @override
   void dispose() {
@@ -25,15 +28,20 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _login() async {
-    if (!_formKey.currentState!.validate()) return;
-    final auth = context.read<AuthProvider>();
-    final ok = await auth.login(_emailCtrl.text.trim(), _passCtrl.text);
-    if (!mounted) return;
-    if (ok) {
-      _redirectByRole(auth.rol);
-    }
-  }
+  if (!_formKey.currentState!.validate()) return;
 
+  final auth = context.read<AuthProvider>();
+  final cart = context.read<CartProvider>(); // 👈 1. Leemos el carrito aquí antes del await
+
+  // 👈 2. Se lo pasamos como argumento al login
+  final ok = await auth.login(_emailCtrl.text.trim(), _passCtrl.text, cart);
+
+  if (!mounted) return; // Ahora si se sale aquí, ¡ya no importa! El ID ya está a salvo en la RAM.
+
+  if (ok) {
+    _redirectByRole(auth.rol);
+  }
+}
   void _redirectByRole(String rol) {
     switch (rol) {
       case 'gerente':     context.go('/gerente');     break;

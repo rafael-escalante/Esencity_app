@@ -221,24 +221,31 @@ class ParfumBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (bg, fg) = switch (label.toLowerCase()) {
-      'disponible'         => (AppColors.badgeActiveBg,   AppColors.badgeActiveText),
-      'activo'             => (AppColors.badgeActiveBg,   AppColors.badgeActiveText),
-      'pendiente'          => (AppColors.badgePendingBg,  AppColors.badgePendingText),
-      'pagado'             => (AppColors.badgePendingBg,  AppColors.badgePendingText),
-      'listo para entrega' => (AppColors.badgeReadyBg,    AppColors.badgeReadyText),
-      'listo'              => (AppColors.badgeReadyBg,    AppColors.badgeReadyText),
-      'finalizado'         => (AppColors.badgeDoneBg,     AppColors.badgeDoneText),
-      'bajo stock'         => (AppColors.badgeLowBg,      AppColors.badgeLowText),
-      'sin stock'          => (AppColors.badgeInactiveBg, AppColors.badgeInactiveText),
-      'inactivo'           => (AppColors.badgeCanceledBg, AppColors.badgeCanceledText),
-      'cancelado'          => (AppColors.badgeCanceledBg, AppColors.badgeCanceledText),
-      _                    => (AppColors.badgeCanceledBg, AppColors.badgeCanceledText),
+    // Usamos .trim() para limpiar espacios vacíos antes de evaluar
+    final (bg, fg) = switch (label.toLowerCase().trim()) {
+      'disponible'          => (AppColors.badgeActiveBg,   AppColors.badgeActiveText),
+      'activo'              => (AppColors.badgeActiveBg,   AppColors.badgeActiveText),
+      'pendiente'           => (AppColors.badgePendingBg,  AppColors.badgeLowText),
+      'pagado'              => (AppColors.badgeActiveBg,  AppColors.badgeActiveText),
+      'listo para entrega' ||
+      'listo para entregar' => (AppColors.badgeReadyBg,    AppColors.badgeReadyText), // 👉 CORREGIDO: Soporta ambas variantes
+      'listo'               => (AppColors.badgeReadyBg,    AppColors.badgeReadyText),
+      'finalizado'          => (AppColors.badgeDoneBg,     AppColors.badgeDoneText),
+      'bajo stock'          => (AppColors.badgeLowBg,      AppColors.badgeLowText),
+      'sin stock'           => (AppColors.badgeInactiveBg, AppColors.badgeInactiveText),
+      'inactivo'            => (AppColors.badgeCanceledBg, AppColors.badgeCanceledText),
+      'cancelado'           => (AppColors.badgeCanceledBg, AppColors.badgeCanceledText), // 👉 CORREGIDO: Cambiado a badgeCanceledText para que sea legible
+      _                     => (AppColors.badgeCanceledBg, AppColors.badgeCanceledText),
     };
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
       decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(20)),
-      child: Text(label, style: TextStyle(color: fg, fontSize: 11, fontWeight: FontWeight.w600)),
+      child: Text(
+        label, 
+        style: TextStyle(color: fg, fontSize: 11, fontWeight: FontWeight.w600),
+        maxLines: 1, // Garantiza que el texto se mantenga en un solo renglón
+      ),
     );
   }
 }

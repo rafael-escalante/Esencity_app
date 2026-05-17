@@ -16,21 +16,33 @@ class _MisPedidosScreenState extends State<MisPedidosScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) =>
-        context.read<OrderProvider>().loadMine());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // 1. Jalamos el ID del usuario logueado desde el AuthProvider
+      final int currentUserId = context.read<AuthProvider>().user?.id ?? 0;
+
+      // 2. Se lo pasamos como parámetro requerido a loadMine
+      context.read<OrderProvider>().loadMine(idUsuario: currentUserId);
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     final prov = context.watch<OrderProvider>();
+    final int currentUserId = context.watch<AuthProvider>().user?.id ?? 0;
 
     return Padding(
         padding: const EdgeInsets.all(16),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
             const Text('Mis Pedidos', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
-            ParfumButton(label: 'Actualizar', onPressed: () => prov.loadMine(),
-                variant: BtnVariant.secondary, icon: Icons.refresh, isSmall: true),
+            ParfumButton(
+            label: 'Actualizar', 
+            // 👉 CORREGIDO: Le pasamos el ID al botón de refrescar
+            onPressed: () => prov.loadMine(idUsuario: currentUserId),
+            variant: BtnVariant.secondary, 
+            icon: Icons.refresh, 
+            isSmall: true,
+          ),
           ]),
           const SizedBox(height: 14),
           Expanded(
@@ -86,7 +98,7 @@ class _OrderCard extends StatelessWidget {
             label: 'Cancelar pedido', isSmall: true, variant: BtnVariant.danger,
             icon: Icons.cancel_outlined,
             onPressed: () async {
-              final ok = await prov.cancel(order.id);
+              final ok = await prov.cancel(order.id, idRol: 4); // 👈 ¡Listo! Línea roja desaparecida
               if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                   content: Text(ok ? 'Pedido cancelado' : 'Error al cancelar'),

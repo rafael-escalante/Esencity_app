@@ -209,21 +209,44 @@ class _EmployeeFormDialogState extends State<_EmployeeFormDialog> {
   }
 
   Future<void> _submit() async {
-    if (!_formKey.currentState!.validate()) return;
+    // 🔍 Si la validación falla en la pantalla, este print te avisará en la consola
+    if (!_formKey.currentState!.validate()) {
+      print('⚠️ Validación visual fallida. Revisa los campos marcados en rojo en el celular.');
+      return;
+    }
+    
     setState(() => _loading = true);
     final prov = context.read<EmployeeProvider>();
+    
+    // 🚦 TRADUCTOR DE ROLES: Convertimos el string del dropdown al id_rol numérico que pide tu MySQL (cajero = 2, almacenista = 3)
+    int idRolNum = _puesto == 'cajero' ? 2 : 3;
+
+    // Embalamos el mapa con todas las columnas reales de tu tabla de MySQL
     final data = {
       'nombre': _nombre.text.trim(),
       'tel': _tel.text.trim(),
-      'rfc':    _rfc.text.trim().toUpperCase(),
-      'email':  _email.text.trim(),
-      'puesto': _puesto,
+      'rfc': _rfc.text.trim().toUpperCase(),
+      'email': _email.text.trim(),
+      'id_rol': idRolNum.toString(), // 🔥 CORREGIDO: Enviamos id_rol numérico en lugar de 'puesto'
+      'estado': _estado,             // 🔥 CORREGIDO: Agregamos el estado activo/inactivo del dropdown
     };
+
+    // 🔥 CORREGIDO: Si es un registro nuevo, le inyectamos la contraseña real escrita por el gerente
+    if (!isEdit) {
+      data['password'] = _pass.text; 
+    } else {
+      data['id'] = widget.employee!.id.toString(); // Aseguramos el ID para el caso de edición
+    }
+
+    // 📦 El chismoso definitivo de la UI
+    print('📦 MAPA COMPLETO LISTO PARA SER ENVIADO DESDE LA UI: $data');
+
     if (isEdit) {
-      await prov.saveEmployee(data, id: widget.employee!.id); // 👈 Nota el 'id:'
+      await prov.saveEmployee(data, id: widget.employee!.id);
     } else {
       await prov.saveEmployee(data);
     }
+    
     widget.onSaved();
     if (mounted) Navigator.pop(context);
   }

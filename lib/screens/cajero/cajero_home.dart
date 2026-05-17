@@ -25,11 +25,11 @@ class _CajeroHomeState extends State<CajeroHome> {
     (icon: Icons.bar_chart_outlined,     label: 'Reportes'),
   ];
 
-  final _screens = const [
-    RealizarVentaScreen(),
-    PedidosEmpleadoScreen(),
-    BuscarProductoScreen(),
-    ReportesScreen(),
+  final _screens = [
+    const RealizarVentaScreen(),
+    const PedidosEmpleadoScreen(idRol: 3),
+    const BuscarProductoScreen(),
+    const ReportesScreen(),
   ];
 
   @override

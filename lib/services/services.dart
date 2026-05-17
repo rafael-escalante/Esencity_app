@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:parfum/core/network/api_client.dart';
 import 'package:parfum/core/constants/api_endpoints.dart';
 import 'package:parfum/models/employee_model.dart';
+import 'package:parfum/models/order_model.dart';
 import 'package:parfum/models/product_model.dart';
 import 'package:parfum/models/models.dart';
 

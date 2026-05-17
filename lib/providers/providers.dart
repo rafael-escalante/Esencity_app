@@ -3,126 +3,110 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'dart:convert';               // Corrige el error de 'jsonEncode' y 'json.decode'
 import 'package:flutter/material.dart';
 import 'package:parfum/models/employee_model.dart';
+import 'package:parfum/models/order_model.dart';
 import 'package:parfum/models/user_model.dart';
 import 'package:parfum/models/product_model.dart';
 import 'package:parfum/models/models.dart';
 import 'package:image_picker/image_picker.dart';
 
-// ══════════════════════════════════════════════════════════════════
-//  MODO DEMO — sin backend real
-//  Credenciales:
-//    gerente@parfum.mx   / cualquier contraseña
-//    cajero@parfum.mx    / cualquier contraseña
-//    almacen@parfum.mx   / cualquier contraseña
-//    cliente@parfum.mx   / cualquier contraseña  (o cualquier otro email)
-// ══════════════════════════════════════════════════════════════════
 
-// ── Datos demo ────────────────────────────────────────────────────
-class _DemoData {
-  static final users = {
-    'gerente@parfum.mx': const UserModel(id: 1, nombre: 'Ana García López', email: 'gerente@parfum.mx',  rol: 'gerente'),
-    'cajero@parfum.mx':  const UserModel(id: 2, nombre: 'Carlos Martínez',  email: 'cajero@parfum.mx',   rol: 'cajero'),
-    'almacen@parfum.mx': const UserModel(id: 3, nombre: 'María Rodríguez',  email: 'almacen@parfum.mx',  rol: 'almacenista'),
-    'cliente@parfum.mx': const UserModel(id: 4, nombre: 'Luis Hernández',   email: 'cliente@parfum.mx',  rol: 'cliente'),
-  };
 
-  // products eliminado — los productos vienen del backend (ProductProvider.load())
-
-  static final employees = [
-    const EmployeeModel(id: 2, nombre: 'Carlos Martínez', rfc: 'MACC900101ABC', email: 'cajero@parfum.mx',  puesto: 'cajero', tel: '9945258463',      estado: 'activo'),
-    const EmployeeModel(id: 3, nombre: 'María Rodríguez', rfc: 'RORM850215XYZ', email: 'almacen@parfum.mx', puesto: 'almacenista',tel: '9945258463', estado: 'activo'),
-    const EmployeeModel(id: 5, nombre: 'Pedro Sánchez',   rfc: 'SAPP780304DEF', email: 'pedro@parfum.mx',   puesto: 'cajero',tel: '9945258463',      estado: 'inactivo'),
-  ];
-
-  static final orders = [
-    OrderModel(
-      id: 1001, clienteNombre: 'Luis Hernández',
-      fecha: DateTime.now().subtract(const Duration(days: 2)),
-      total: 5300, status: 'Pendiente', metodoPago: 'Transferencia', referencia: 'REF-001',
-      items: const [
-        OrderItemModel(id: 1, productoId: 1, nombreProducto: 'Chanel No. 5',  cantidad: 1, precioUnitario: 3500),
-        OrderItemModel(id: 2, productoId: 3, nombreProducto: 'Good Girl',     cantidad: 1, precioUnitario: 1800),
-      ],
-    ),
-    OrderModel(
-      id: 1002, clienteNombre: 'Sofía Torres',
-      fecha: DateTime.now().subtract(const Duration(days: 5)),
-      total: 2800, status: 'Listo para entrega', metodoPago: 'Transferencia', referencia: 'REF-002',
-      items: const [
-        OrderItemModel(id: 3, productoId: 2, nombreProducto: 'Dior Sauvage', cantidad: 1, precioUnitario: 2800),
-      ],
-    ),
-    OrderModel(
-      id: 1003, clienteNombre: 'Roberto Díaz',
-      fecha: DateTime.now().subtract(const Duration(days: 10)),
-      total: 4600, status: 'Finalizado', metodoPago: 'Transferencia', referencia: 'REF-003',
-      items: const [
-        OrderItemModel(id: 4, productoId: 4, nombreProducto: 'Bleu de Chanel', cantidad: 1, precioUnitario: 3100),
-        OrderItemModel(id: 5, productoId: 6, nombreProducto: 'CK One',         cantidad: 1, precioUnitario: 1200),
-      ],
-    ),
-    OrderModel(
-      id: 1004, clienteNombre: 'Luis Hernández',
-      fecha: DateTime.now().subtract(const Duration(days: 1)),
-      total: 1200, status: 'Pendiente', metodoPago: 'Transferencia', referencia: 'REF-004',
-      items: const [
-        OrderItemModel(id: 6, productoId: 6, nombreProducto: 'CK One', cantidad: 1, precioUnitario: 1200),
-      ],
-    ),
-  ];
-}
 
 // ── AuthProvider ──────────────────────────────────────────────────
 class AuthProvider extends ChangeNotifier {
+  // ── 🌐 URL DE TU SERVIDOR (ngrok actual) ──────────────────────────
+  final String _baseUrl = 'https://stir-resisting-atom.ngrok-free.dev/api_flutter';
+
   UserModel? _user;
   bool _loading = false;
   String? _error;
 
+  // GETTERS
   UserModel? get user => _user;
   bool get isLoggedIn => _user != null;
   bool get loading    => _loading;
   String? get error   => _error;
   String get rol      => _user?.rol ?? '';
+  
+  // 🏆 GETTER CLAVE: Para que el LoginScreen le pase el ID al CartProvider de forma directa
+  int get idUsuario   => _user?.id ?? 0;
 
   Future<bool> tryAutoLogin() async {
-    // En modo demo no hay sesión persistida
+    // Aquí podrías meter persistencia con SharedPreferences más adelante
     return false;
   }
 
-  Future<bool> login(String email, String password) async {
-    _loading = true; _error = null; notifyListeners();
-    await Future.delayed(const Duration(milliseconds: 600)); // simular red
+  // ── 🔑 LOGIN TRANSACCIONAL CON BASE DE DATOS ──────────────────────
+  // ── Modifica la firma para recibir al CartProvider ──
+Future<bool> login(String email, String password, CartProvider cart) async {
+  _loading = true; 
+  _error = null; 
+  notifyListeners();
 
-    final found = _DemoData.users[email.trim().toLowerCase()];
-    if (found != null) {
-      _user = found;
-      _loading = false; notifyListeners();
-      return true;
+  try {
+    final response = await http.post(
+      Uri.parse('$_baseUrl/login.php'),
+      body: {
+        'email': email.trim(),
+        'password': password,
+      },
+    );
+
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+
+      if (data['status'] == 'success') {
+        final int idRolReal = data['id_rol'];
+        String stringRol = 'cliente';
+
+        if (idRolReal == 1) stringRol = 'gerente';
+        if (idRolReal == 2) stringRol = 'cajero';
+        if (idRolReal == 3) stringRol = 'almacenista';
+
+        _user = UserModel(
+          id: data['id_usuario'],
+          nombre: data['nombre'],
+          email: email.trim(),
+          rol: stringRol,
+          idRol: idRolReal,
+        );
+
+        // 🔥 EL TRUCO MAESTRO: Enlazamos el usuario al carrito AQUÍ,
+        // justo antes de que las pantallas cambien de lugar.
+        cart.registrarUsuario(data['id_usuario']);
+
+        _loading = false;
+        notifyListeners(); // Ahora sí, que el main reconstruya el router en paz
+        return true;
+      } else {
+        _error = data['message'];
+      }
+    } else {
+      _error = 'Error de respuesta del servidor (${response.statusCode})';
     }
-    // Cualquier email no registrado entra como cliente
-    if (email.isNotEmpty && password.isNotEmpty) {
-      _user = UserModel(id: 99, nombre: email.split('@')[0], email: email, rol: 'cliente');
-      _loading = false; notifyListeners();
-      return true;
-    }
-    _error = 'Ingresa un correo y contraseña válidos';
-    _loading = false; notifyListeners();
-    return false;
+  } catch (e) {
+    _error = 'No se pudo conectar con el servidor.';
   }
 
+  _loading = false;
+  notifyListeners();
+  return false;
+}
+  // ── 📝 REGISTRO DE NUEVOS CLIENTES (Opcional, se conecta igual) ──
   Future<bool> register({
     required String nombre, required String email,
     required String password, String? telefono,
   }) async {
     _loading = true; _error = null; notifyListeners();
     await Future.delayed(const Duration(milliseconds: 500));
-    _user = UserModel(id: 99, nombre: nombre, email: email, rol: 'cliente', telefono: telefono);
+    _user = UserModel(id: 99, nombre: nombre, email: email, rol: 'cliente', telefono: telefono, idRol: 4);
     _loading = false; notifyListeners();
     return true;
   }
 
   Future<void> logout() async {
-    _user = null; notifyListeners();
+    _user = null; 
+    notifyListeners();
   }
 
   Future<bool> updateProfile(Map<String, dynamic> data) async {
@@ -140,46 +124,182 @@ class AuthProvider extends ChangeNotifier {
 
 // ── CartProvider ──────────────────────────────────────────────────
 class CartProvider extends ChangeNotifier {
-  List<CartItemModel> _items = [];
+  final String _baseUrl = 'https://stir-resisting-atom.ngrok-free.dev/api_flutter'; 
+  final Map<int, dynamic> _items = {};
+  int? _idUsuario;
   bool _loading = false;
 
-  List<CartItemModel> get items => _items;
-  bool get loading              => _loading;
-  int  get itemCount            => _items.fold(0, (s, i) => s + i.cantidad);
-  double get subtotal           => _items.fold(0, (s, i) => s + i.subtotal);
-  double get iva                => subtotal * 0.16;
-  double get total              => subtotal + iva;
+  // GETTERS PÚBLICOS
+  Map<int, dynamic> get items => {..._items};
+  int get itemCount => _items.length;
+  bool get loading => _loading;
 
-  Future<void> load() async { /* demo: carrito vacío al inicio */ }
+  // 💵 CÁLCULOS FINANCIEROS DICTAMINADOS
+  double get subtotal {
+    double sum = 0.0;
+    _items.forEach((key, item) {
+      final double precio = double.parse(item['precio'].toString());
+      final int cantidad = int.parse(item['cantidad'].toString());
+      sum += precio * cantidad;
+    });
+    return sum;
+  }
 
-  Future<void> addProduct(ProductModel p, int qty) async {
-    final idx = _items.indexWhere((i) => i.productoId == p.id);
-    if (idx >= 0) {
-      _items[idx].cantidad += qty;
+  double get iva => subtotal * 0.16;
+  double get total => subtotal + iva;
+
+  // 🔐 ENLAZAR EL USUARIO DESDE EL LOGIN REAL
+  void registrarUsuario(int idUsuario) {
+    _idUsuario = idUsuario;
+    _items.clear(); // Limpia residuos de sesiones previas
+    load();         // Jala automáticamente el carrito real de este usuario en MySQL
+  }
+
+  // 📥 LEER EL CARRITO DE MYSQL (INNER JOIN REALIZADO)
+  Future<void> load() async {
+    if (_idUsuario == null) return; 
+
+    _loading = true; 
+    notifyListeners(); 
+
+    try {
+      final response = await http.get(
+        Uri.parse('$_baseUrl/carrito_obtener.php?id_usuario=$_idUsuario'),
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        
+        if (data['status'] == 'success' && data['items'] != null) {
+          _items.clear(); 
+          for (var item in data['items']) {
+            final int idProd = int.parse(item['id_producto'].toString());
+            _items[idProd] = {
+              'id_producto': idProd, // Guardamos con el nombre real de tu columna
+              'nombre': item['nombre'],
+              'precio': double.parse(item['precio'].toString()),
+              'cantidad': int.parse(item['cantidad'].toString()),
+              'imagen': item['imagen'] ?? '',
+            };
+          }
+        }
+      }
+    } catch (e) {
+      print('Error de conexión al cargar carrito: $e');
+    } finally {
+      _loading = false;
+      notifyListeners(); 
+    }
+  }
+
+  // 🔥 AGREGAR AL CARRITO CON CONEXIÓN EN TIEMPO REAL
+  Future<void> addProduct(dynamic product, int cantidad) async {
+    
+    // 📡 RADAR 1: Ver si el botón de la pantalla realmente llama al Provider
+    print('🛒 [CartProvider] ¡El botón de la UI sí llamó a addProduct!');
+    print('👤 [CartProvider] id_usuario en el Provider: $_idUsuario');
+
+    if (_idUsuario == null) {
+      print("⚠️ [CartProvider] ABORTADO: id_usuario es NULL. (Tip: Si hiciste Hot Restart, vuelve a pasar por el Login para registrar al usuario).");
+      return;
+    }
+
+    // 📡 RADAR 2: Ver qué ID está detectando del perfume
+    final int idProd = product.id;
+    print('🆔 [CartProvider] ID del producto detectado: $idProd');
+    
+    if (idProd == 0) {
+      print("⚠️ [CartProvider] ABORTADO: El ID del producto es 0 o NULL. Revisa cómo se llama la propiedad en tu modelo de catálogo.");
+      return;
+    }
+
+    // 1. Modificación en la memoria RAM (UI veloz)
+    if (_items.containsKey(idProd)) {
+      _items.update(idProd, (existing) => {
+        ...existing,
+        'cantidad': existing['cantidad'] + cantidad,
+      });
     } else {
-      _items.add(CartItemModel(
-        productoId: p.id, nombre: p.nombre,
-        descripcion: '${p.concentracion} ${p.ml}ml',
-        precio: p.precio, cantidad: qty,
-      ));
+      _items[idProd] = {
+        'id_producto': idProd,
+        'nombre': product.nombre,
+        'precio': double.parse(product.precio.toString()),
+        'cantidad': cantidad,
+        'imagen': '',
+      };
     }
     notifyListeners();
+    print('📥 [CartProvider] Guardado en RAM con éxito. Items actuales: ${_items.length}');
+
+    // 2. Envío transaccional a MySQL
+    try {
+      print('🌐 [CartProvider] Enviando datos por POST a carrito_agregar.php...');
+      final response = await http.post(
+        Uri.parse('$_baseUrl/gestion_carrito.php'),
+        body: {
+          'id_usuario': _idUsuario.toString(),
+          'id_producto': idProd.toString(),
+          'cantidad': cantidad.toString(),
+        },
+      );
+      
+      // 📡 RADAR 3: Ver qué dice tu base de datos
+      print('📡 [CartProvider] Respuesta cruda de MySQL: ${response.body}');
+      
+    } catch (e) {
+      print('❌ [CartProvider] Error de red al conectar con PHP: $e');
+    }
   }
 
-  Future<void> updateQty(int productoId, int qty) async {
-    final idx = _items.indexWhere((i) => i.productoId == productoId);
-    if (idx < 0) return;
-    if (qty <= 0) { _items.removeAt(idx); }
-    else          { _items[idx].cantidad = qty; }
-    notifyListeners();
+  // ── 🔄 ACTUALIZAR CANTIDAD DESDE EL CARRITO (Botones + y -) ──
+  Future<void> updateQty(int idProducto, int nuevaCantidad) async {
+    if (!_items.containsKey(idProducto)) return;
+
+    if (nuevaCantidad <= 0) {
+      await remove(idProducto);
+      return;
+    }
+
+    _items[idProducto]['cantidad'] = nuevaCantidad;
+    notifyListeners(); 
+
+    // Sincronizamos el cambio absoluto con la base de datos
+    try {
+      await http.post(
+        Uri.parse('$_baseUrl/carrito_actualizar.php'),
+        body: {
+          'id_usuario': _idUsuario.toString(),
+          'id_producto': idProducto.toString(),
+          'cantidad': nuevaCantidad.toString(),
+        },
+      );
+    } catch (e) {
+      print('Error al actualizar cantidad en la BD: $e');
+    }
   }
 
-  Future<void> remove(int productoId) async {
-    _items.removeWhere((i) => i.productoId == productoId);
-    notifyListeners();
+  // ── 🗑️ ELIMINAR UN PRODUCTO INDIVIDUAL (Botón X) ──
+  Future<void> remove(int idProducto) async {
+    _items.remove(idProducto);
+    notifyListeners(); 
+
+    try {
+      await http.post(
+        Uri.parse('$_baseUrl/carrito_eliminar.php'),
+        body: {
+          'id_usuario': _idUsuario.toString(),
+          'id_producto': idProducto.toString(),
+        },
+      );
+    } catch (e) {
+      print('Error al eliminar producto de la BD: $e');
+    }
   }
 
-  Future<void> clear() async { _items.clear(); notifyListeners(); }
+  Future<void> clear() async {
+    _items.clear();    
+    notifyListeners(); 
+  }
 }
 
 class ProductProvider extends ChangeNotifier {
@@ -363,72 +483,181 @@ class ProductProvider extends ChangeNotifier {
   }
 }
 
-// ── OrderProvider ─────────────────────────────────────────────────
 class OrderProvider extends ChangeNotifier {
-  List<OrderModel> _all    = List.from(_DemoData.orders);
-  List<OrderModel> _orders = List.from(_DemoData.orders);
+  final String _baseUrl = 'https://stir-resisting-atom.ngrok-free.dev/api_flutter';
+  
+  // Inicializamos las listas vacías para que se llenen directo desde MySQL
+  List<OrderModel> _all    = [];
+  List<OrderModel> _orders = [];
   bool _loading = false;
   String? _error;
+  String? _lastFolio;
+  List<dynamic> _misPedidos = [];
+  List<dynamic> get misPedidos => _misPedidos;
 
   List<OrderModel> get orders => _orders;
   bool get loading             => _loading;
   String? get error            => _error;
+  String? get lastFolio => _lastFolio;
 
+  //Metodo para cargar pedidos (empleados)
   Future<void> loadAll({String? status}) async {
-    _loading = true; notifyListeners();
-    await Future.delayed(const Duration(milliseconds: 300));
-    _orders = status == null
-        ? List.from(_all)
-        : _all.where((o) => o.status == status).toList();
-    _loading = false; notifyListeners();
+    _loading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      String url = '$_baseUrl/pedidos_leer.php';
+      if (status != null) {
+        url += '?status=$status';
+      }
+      
+      // 🕵️‍♂️ Log 1: Verificar a qué dirección le estamos pegando
+      print('🌐 [OrderProvider] Iniciando petición HTTP a: $url');
+
+      final response = await http.get(Uri.parse(url));
+      
+      // 🕵️‍♂️ Log 2: Verificar el código de estado HTTP (Debe ser 200)
+      print('📥 [OrderProvider] Código de respuesta del servidor: ${response.statusCode}');
+      // 🕵️‍♂️ Log 3: Ver el texto JSON idéntico a cómo lo escupe PHP
+      print('📄 [OrderProvider] JSON puro recibido: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final List<dynamic> decodedData = json.decode(response.body);
+        
+        _all = decodedData.map((jsonItem) => OrderModel.fromJson(jsonItem)).toList();
+        _orders = List.from(_all);
+        
+        // 🕵️‍♂️ Log 4: Confirmar si Flutter terminó el mapeo
+        print('✅ [OrderProvider] Mapeo completado. Pedidos cargados: ${_orders.length}');
+      } else {
+        _error = 'Error del servidor al cargar pedidos';
+      }
+    } catch (e) {
+      // 🕵️‍♂️ Log 5: Capturar el culpable real del fallo
+      print('❌ [OrderProvider] ¡ALERTA! El proceso falló por completo: $e');
+      _error = 'Error de conexión: $e';
+    } finally {
+      _loading = false;
+      notifyListeners();
+    }
   }
 
-  Future<void> loadMine() async {
-    _loading = true; notifyListeners();
-    await Future.delayed(const Duration(milliseconds: 300));
-    // Mostrar pedidos de Luis Hernández (id 4) como demo del cliente
-    _orders = _all.where((o) => o.clienteNombre == 'Luis Hernández').toList();
-    _loading = false; notifyListeners();
+  // ── Cargar mis pedidos (Para el Cliente) ──────────────────────────
+  Future<void> loadMine({required int idUsuario}) async {
+    _loading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      print('🌐 [OrderProvider] Cargando pedidos del cliente ID: $idUsuario');
+      
+      // Enviamos el parámetro para que MySQL filtre en el servidor de forma eficiente
+      final response = await http.get(
+        Uri.parse('$_baseUrl/pedidos_leer.php?id_usuario=$idUsuario'),
+      );
+
+      print('📥 [OrderProvider] Respuesta historial cliente: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final List<dynamic> decodedData = json.decode(response.body);
+        
+        // Convertimos el JSON directamente a tus objetos OrderModel
+        _orders = decodedData.map((jsonItem) => OrderModel.fromJson(jsonItem)).toList();
+        
+        print('✅ [OrderProvider] Historial del cliente mapeado. Registros: ${_orders.length}');
+      } else {
+        _error = 'Error al cargar tus pedidos';
+      }
+    } catch (e) {
+      print('❌ [OrderProvider] Fallo en loadMine: $e');
+      _error = 'Error de conexión: $e';
+    } finally {
+      _loading = false;
+      notifyListeners();
+    }
   }
 
-  Future<bool> updateStatus(int id, String status) async {
-    final idx = _all.indexWhere((o) => o.id == id);
-    if (idx < 0) return false;
-    final old = _all[idx];
-    _all[idx] = OrderModel(
-      id: old.id, clienteNombre: old.clienteNombre,
-      fecha: old.fecha, total: old.total,
-      status: status, metodoPago: old.metodoPago,
-      referencia: old.referencia, items: old.items,
-    );
-    await loadAll();
-    return true;
+  // ── Actualizar Status de Pedidos (Flujo por Roles) ────────────────
+  Future<bool> updateStatus(int idPedido, String nuevoEstado, int idRol) async {
+    _loading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/pedido_actualizar.php'),
+        body: {
+          'id_pedido': idPedido.toString(),
+          'nuevo_estado': nuevoEstado,
+          'id_rol': idRol.toString(), 
+        },
+      );
+
+      _loading = false;
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['status'] == 'success') {
+          await loadAll();
+          return true;
+        } else {
+          _error = data['message'] ?? 'Error al actualizar';
+          _loading = false;
+          notifyListeners();
+          return false;
+        }
+      }
+      return false;
+    } catch (e) {
+      _loading = false;
+      _error = 'Error de conexión: $e';
+      notifyListeners();
+      return false;
+    }
   }
 
-  Future<bool> cancel(int id, {String? motivo}) async {
-    return updateStatus(id, 'Cancelado');
+  // ── Cancelar Pedido (Universal) ───────────────────────────────────
+  Future<bool> cancel(int id, {String? motivo, required int idRol}) async {
+    return updateStatus(id, 'Cancelado', idRol);
   }
 
-  Future<OrderModel> createFromCart(List<CartItemModel> cartItems) async {
-    await Future.delayed(const Duration(milliseconds: 400));
-    final order = OrderModel(
-      id: 1000 + _all.length + 1,
-      clienteNombre: 'Luis Hernández',
-      fecha: DateTime.now(),
-      total: cartItems.fold(0.0, (s, i) => s + i.subtotal) * 1.16,
-      status: 'Pendiente',
-      metodoPago: 'Transferencia',
-      referencia: 'REF-DEMO-${DateTime.now().millisecondsSinceEpoch}',
-      items: cartItems.map((ci) => OrderItemModel(
-        id: _all.length + 1,
-        productoId: ci.productoId,
-        nombreProducto: ci.nombre,
-        cantidad: ci.cantidad,
-        precioUnitario: ci.precio,
-      )).toList(),
-    );
-    _all.insert(0, order);
-    return order;
+  // ── Crear pedido desde Carrito (Modo Demo de la App) ──────────────
+  // 👉 CORREGIDO: Adaptado al constructor limpio del nuevo OrderModel
+  // Cambiamos los parámetros: Ahora solo necesitamos recibir el ID del usuario conectado
+  Future<bool> createFromCart({required int idUsuario}) async {
+    _loading = true;
+    _error = null;
+    
+    
+    notifyListeners();
+
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/pedido_crear.php'),
+        body: {
+          'id_usuario': idUsuario.toString(), // 👉 Mandamos el ID al backend PHP
+        },
+      );
+
+      _loading = false;
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['status'] == 'success') {
+          
+          // 🔥 Capturamos el folio real enviado por pedido_crear.php
+          _lastFolio = data['folio'].toString(); 
+          
+          notifyListeners();
+          return true;
+        }
+      }
+      return false;
+    } catch (e) {
+      _loading = false;
+      _error = 'Error de conexión: $e';
+      notifyListeners();
+      return false;
+    }
   }
 }
 
@@ -438,7 +667,7 @@ class EmployeeProvider extends ChangeNotifier {
   bool _loading = false;
   
   // 👉 Cambia esto por tu URL actual de ngrok
-  final String _baseUrl = 'https://stir-resisting-atom.ngrok-free.dev/api_flutter/usuarios_gestion.php';
+  final String _baseUrl = 'https://stir-resisting-atom.ngrok-free.dev/api_flutter';
 
   List<EmployeeModel> get employees => _employees;
   bool get loading => _loading;
@@ -458,7 +687,7 @@ class EmployeeProvider extends ChangeNotifier {
 
     try {
       final response = await http.post(
-        Uri.parse(_baseUrl),
+        Uri.parse('$_baseUrl/usuarios_gestion.php'),
         headers: {'ngrok-skip-browser-warning': 'true'},
         body: {
           'accion': 'leer', // El PHP ya sabe que debe traer roles 2 y 3
@@ -497,10 +726,10 @@ class EmployeeProvider extends ChangeNotifier {
     // 2. Convierte el texto a minúsculas antes de buscar en el mapa
     String puestoSeleccionado = data['puesto'].toString().toLowerCase().trim();
     int idRol = rolesMapping[puestoSeleccionado] ?? 2; // Si falla, pone 2 (Cajero) por defecto
-
+    print('🔍 MAPA RECIBIDO DESDE EL FORMULARIO: $data');
     try {
       final response = await http.post(
-        Uri.parse(_baseUrl),
+        Uri.parse('$_baseUrl/usuarios_gestion.php'),
         headers: {'ngrok-skip-browser-warning': 'true'},
         body: {
           'accion': 'guardar',
@@ -508,7 +737,7 @@ class EmployeeProvider extends ChangeNotifier {
           'id_rol': idRol.toString(),
           'nombre': data['nombre'],
           'email': data['email'],
-          'password': data['password'] ?? '123456', // Password por defecto si es nuevo
+          'password': data['password'] ?? data['contrasena'] ?? data['contraseña'] ?? '123456',
           'rfc': data['rfc'] ?? '',
           'tel': data['tel'] ?? '',
           'estado': data['estado'] ?? 'activo',

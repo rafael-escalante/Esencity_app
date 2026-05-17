@@ -23,10 +23,11 @@ class _AlmacenistaHomeState extends State<AlmacenistaHome> {
     (icon: Icons.search,                label: 'Buscar'),
   ];
 
-  final _screens = const [
-    InventarioScreen(),
-    PedidosEmpleadoScreen(),
-    BuscarProductoScreen(),
+  final _screens = [
+    const InventarioScreen(),
+    // Como este archivo solo lo abre el almacenista, le inyectas el 2 directo:
+    const PedidosEmpleadoScreen(idRol: 2),
+    const BuscarProductoScreen(),
   ];
 
   @override

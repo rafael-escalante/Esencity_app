@@ -15,10 +15,15 @@ class GerenteHome extends StatefulWidget {
   const GerenteHome({super.key});
   @override
   State<GerenteHome> createState() => _GerenteHomeState();
+
+  
+
+
 }
 
 class _GerenteHomeState extends State<GerenteHome> {
   int _selected = 0;
+  
   bool _isExpanded = true; // Controla el estado del sidebar
 
   final _items = const [
@@ -30,18 +35,22 @@ class _GerenteHomeState extends State<GerenteHome> {
     _NavItem(icon: Icons.bar_chart_outlined,    label: 'Reportes'),
   ];
 
-  final _screens = const [
-    EmpleadosScreen(),
-    InventarioScreen(),
-    PedidosEmpleadoScreen(),
-    RealizarVentaScreen(),
-    BuscarProductoScreen(),
-    ReportesScreen(),
+  
+
+  final _screens = [
+    const EmpleadosScreen(),
+    const InventarioScreen(),
+    // Como estás dentro del menú exclusivo del gerente, le inyectas el 1 directo:
+    const PedidosEmpleadoScreen(idRol: 1),
+    const RealizarVentaScreen(),
+    const BuscarProductoScreen(),
+    const ReportesScreen(),
   ];
 
   @override
   Widget build(BuildContext context) {
     final user = context.watch<AuthProvider>().user;
+    
     
     return Scaffold(
       // 1. Agregamos el Drawer (La ventana deslizante)

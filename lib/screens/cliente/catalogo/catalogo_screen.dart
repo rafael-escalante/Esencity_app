@@ -197,9 +197,11 @@ class _ProductoDetalleScreenState extends State<ProductoDetalleScreen> {
 
   Future<void> _addToCart() async {
     await context.read<CartProvider>().addProduct(widget.product, _qty);
-    setState(() => _added = true);
-    await Future.delayed(const Duration(seconds: 2));
-    if (mounted) setState(() => _added = false);
+    
+    // 🔥 EL ESCUDO DEFENSIVO: Solo ejecuta el setState si el usuario sigue viendo esta pantalla
+    if (mounted) {
+      setState(() => _added = true);
+    }
   }
 
   @override
