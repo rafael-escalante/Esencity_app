@@ -86,15 +86,65 @@ Future<bool> login(String email, String password, CartProvider cart) async {
   return false;
 }
   // ── 📝 REGISTRO DE NUEVOS CLIENTES (Opcional, se conecta igual) ──
+  // ── 📝 REGISTRO REAL DE NUEVOS CLIENTES (Conectado a MySQL) ──
   Future<bool> register({
-    required String nombre, required String email,
-    required String password, String? telefono,
+    required String nombre, 
+    required String email,
+    required String password, 
+    String? telefono,
   }) async {
-    _loading = true; _error = null; notifyListeners();
-    await Future.delayed(const Duration(milliseconds: 500));
-    _user = UserModel(id: 99, nombre: nombre, email: email, rol: 'cliente', telefono: telefono, idRol: 4);
-    _loading = false; notifyListeners();
-    return true;
+    _loading = true; 
+    _error = null; 
+    notifyListeners();
+
+    try {
+      print('🌐 [Auth] Enviando registro de cliente a MySQL...');
+      
+      final response = await http.post(
+        Uri.parse('$_baseUrl/registro_cliente.php'),
+        body: {
+          'nombre': nombre,
+          'email': email,
+          'password': password,
+          'tel': telefono ?? '', // 🔥 CORREGIDO: Enviamos 'tel' al PHP
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+
+        if (data['status'] == 'success') {
+          final userMap = data['user'];
+          
+          // 🔥 MAPEADO EXACTO: Captura userMap['tel'] que envía el nuevo PHP
+          _user = UserModel(
+            id: userMap['id'] as int? ?? 0,
+            nombre: userMap['nombre'] as String? ?? nombre,
+            email: userMap['email'] as String? ?? email, 
+            telefono: userMap['tel'] as String? ?? telefono, // Mapea 'tel' a tu propiedad local
+            rol: 'cliente',
+            idRol: userMap['id_rol'] as int? ?? 4, 
+          );
+          
+          _error = null;
+          print('✅ [Auth] Registro completado y sesión iniciada con éxito.');
+          return true;
+        } else {
+          _error = data['message'] ?? 'Error al registrar la cuenta.';
+          return false;
+        }
+      } else {
+        _error = 'Error de respuesta del servidor (${response.statusCode})';
+        return false;
+      }
+    } catch (e) {
+      _error = 'Error de conexión. Verifica que ngrok esté encendido.';
+      print('Error crítico en register: $e');
+      return false;
+    } finally {
+      _loading = false; 
+      notifyListeners();
+    }
   }
 
   Future<void> logout() async {
@@ -113,4 +163,7 @@ Future<bool> login(String email, String password, CartProvider cart) async {
   }
 
   void clearError() { _error = null; notifyListeners(); }
+
+  
+
 }

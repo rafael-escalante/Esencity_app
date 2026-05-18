@@ -112,6 +112,7 @@ class OrderProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
+      print('🌐 [POS-DEBUG] Enviando a pedido_actualizar.php -> id_pedido: $idPedido, nuevo_estado: "$nuevoEstado", id_rol: $idRol');
       final response = await http.post(
         Uri.parse('$_baseUrl/pedido_actualizar.php'),
         body: {
@@ -122,12 +123,14 @@ class OrderProvider extends ChangeNotifier {
       );
 
       _loading = false;
+      print('📥 [POS-DEBUG] Respuesta cruda del servidor: ${response.body}');
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         if (data['status'] == 'success') {
           await loadAll();
           return true;
         } else {
+          print('❌ [POS-DEBUG] El servidor rechazó el cambio: ${data['message']}');
           _error = data['message'] ?? 'Error al actualizar';
           _loading = false;
           notifyListeners();

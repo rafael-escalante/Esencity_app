@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:parfum/models/product_model.dart';
+import 'package:parfum/providers/auth_provider.dart';
 import 'package:parfum/providers/product_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:parfum/core/constants/app_colors.dart';
@@ -6,16 +8,21 @@ import 'package:parfum/core/constants/app_strings.dart';
 import 'package:parfum/core/utils/formatters.dart';
 import 'package:parfum/models/models.dart';
 import 'package:parfum/widgets/common/common_widgets.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+
 
 class RealizarVentaScreen extends StatefulWidget {
   const RealizarVentaScreen({super.key});
   @override
   State<RealizarVentaScreen> createState() => _RealizarVentaScreenState();
 }
-
+final String _baseUrl = 'https://stir-resisting-atom.ngrok-free.dev/api_flutter';
 class _RealizarVentaScreenState extends State<RealizarVentaScreen> {
   final _skuCtrl   = TextEditingController();
   final _montoCtrl = TextEditingController();
+
+  List<ProductModel> _sugerencias = [];
 
   List<SaleItemModel> _items = [];
   String _metodoPago         = 'Efectivo';
@@ -30,41 +37,48 @@ class _RealizarVentaScreenState extends State<RealizarVentaScreen> {
   double get _cambio   => _metodoPago == 'Efectivo'
       ? (double.tryParse(_montoCtrl.text) ?? 0) - _total : 0;
 
-  // Buscar producto del ProductProvider por SKU
-  void _addBySku() async {
-    final sku = _skuCtrl.text.trim().toUpperCase();
-    if (sku.isEmpty) return;
-    setState(() { _loadingSku = true; _error = null; });
-    await Future.delayed(const Duration(milliseconds: 200));
-
-    final prov = context.read<ProductProvider>();
-    // Asegurarnos de que los productos estén cargados
-    if (prov.products.isEmpty) await prov.load();
-
-    final product = prov.products.where((p) =>
-        p.sku.toUpperCase() == sku).firstOrNull;
-
-    if (product == null) {
-      setState(() { _error = 'SKU no encontrado: $sku'; _loadingSku = false; });
-      return;
-    }
+  // 🔥 MÉTODO CORE: Agrega el objeto ProductModel directamente a la venta actual
+  void _agregarProductoAFormulario(ProductModel product) {
     if (!product.isAvailable) {
-      setState(() { _error = 'Producto sin stock: ${product.nombre}'; _loadingSku = false; });
+      setState(() => _error = 'Producto sin stock: ${product.nombre}');
       return;
     }
 
     final idx = _items.indexWhere((i) => i.productoId == product.id);
-    if (idx >= 0) {
-      _items[idx].cantidad++;
+    setState(() {
+      if (idx >= 0) {
+        _items[idx].cantidad++;
+      } else {
+        _items.add(SaleItemModel(
+          productoId: product.id,
+          nombre: product.nombre,
+          sku: product.sku,
+          precio: product.precio,
+        ));
+      }
+      _error = null; // Limpiamos errores previos si todo sale bien
+      _sugerencias = []; // Ocultamos el panel de sugerencias
+      _skuCtrl.clear();   // Limpiamos el buscador
+    });
+  }
+
+  // 📝 TU MÉTODO MODIFICADO: Para cuando presionan ENTER o usan escáner físico
+  void _addBySku() async {
+    final texto = _skuCtrl.text.trim().toUpperCase();
+    if (texto.isEmpty) return;
+
+    setState(() { _loadingSku = true; _error = null; });
+    final prov = context.read<ProductProvider>();
+    if (prov.products.isEmpty) await prov.load();
+
+    // Busca coincidencia exacta por SKU (Flujo del Escáner)
+    final product = prov.products.where((p) => p.sku.toUpperCase() == texto).firstOrNull;
+
+    if (product != null) {
+      _agregarProductoAFormulario(product);
     } else {
-      _items.add(SaleItemModel(
-        productoId: product.id,
-        nombre: product.nombre,
-        sku: product.sku,
-        precio: product.precio,
-      ));
+      setState(() { _error = 'SKU no encontrado: $texto'; });
     }
-    _skuCtrl.clear();
     setState(() => _loadingSku = false);
   }
 
@@ -80,14 +94,63 @@ class _RealizarVentaScreenState extends State<RealizarVentaScreen> {
         return;
       }
     }
-    setState(() { _procesando = true; _error = null; });
-    await Future.delayed(const Duration(milliseconds: 500));
-    setState(() {
-      _success = '¡Venta registrada! Total: ${CurrencyFormatter.format(_total)}';
-      _items = [];
-      _montoCtrl.clear();
-      _procesando = false;
-    });
+
+    setState(() { _procesando = true; _error = null; _success = null; });
+
+    try {
+      // Jalamos el ID del empleado/cajero que está operando el POS
+      final int empleadoId = context.read<AuthProvider>().user?.id ?? 0;
+
+      // Convertimos la lista de la RAM al formato estructurado que pide tu PHP
+      final List<Map<String, dynamic>> productosPayload = _items.map((item) => {
+        'id': item.productoId,
+        'cant': item.cantidad,
+        'precio': item.precio,
+      }).toList();
+
+      // Armando el cuerpo del JSON completo
+      final Map<String, dynamic> bodyPayload = {
+        'id_usuario': empleadoId,
+        'total': _total,
+        'metodo_pago': _metodoPago,
+        'productos': productosPayload,
+      };
+
+      print('🌐 [POS] Enviando JSON de venta al servidor...');
+      
+      final response = await http.post(
+        Uri.parse('$_baseUrl/procesar_venta.php'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode(bodyPayload),
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+
+        if (data['status'] == 'success') {
+          // Si todo sale bien en MySQL, actualizamos el catálogo para reflejar el nuevo stock restado
+          await context.read<ProductProvider>().load();
+
+          setState(() {
+            _success = '¡Venta #${data['id_venta']} registrada! Total: ${CurrencyFormatter.format(_total)}';
+            _items = [];
+            _montoCtrl.clear();
+          });
+        } else {
+          setState(() => _error = 'Fallo en BD: ${data['message']}');
+        }
+      } else {
+        setState(() => _error = 'Error de respuesta del servidor (${response.statusCode})');
+      }
+    } catch (e) {
+      setState(() => _error = 'Error de red. Verifica la conexión con ngrok.');
+      print('Error crítico en POS: $e');
+    } finally {
+      // 🔥 ¡CORREGIDO! Sintaxis limpia que devuelve todo a la normalidad
+      setState(() {
+        _procesando = false;
+      });
+    }
   }
 
   void _cancelar() => setState(() {
@@ -116,16 +179,34 @@ Widget build(BuildContext context) {
         const SizedBox(height: 10),
       ],
 
-      // Buscador de SKU
+      // Buscador de SKU e Inteligente por Nombre
       Row(children: [
-        Expanded(child: TextField(
-          controller: _skuCtrl,
-          decoration: const InputDecoration(
-            hintText: 'Escanear o escribir SKU...',
-            prefixIcon: Icon(Icons.qr_code, size: 18),
+        Expanded(
+          child: TextField(
+            controller: _skuCtrl,
+            decoration: const InputDecoration(
+              hintText: 'Escribir nombre, marca o escanear SKU...',
+              prefixIcon: Icon(Icons.search, size: 18), // Cambiado a lupa para indicar búsqueda general
+            ),
+            onSubmitted: (_) => _addBySku(),
+            // 🔥 FILTRO EN TIEMPO REAL: Busca coincidencias por SKU o por Nombre
+            onChanged: (value) {
+              final query = value.trim().toLowerCase();
+              final prov = context.read<ProductProvider>();
+              
+              setState(() {
+                if (query.isEmpty) {
+                  _sugerencias = [];
+                } else {
+                  _sugerencias = prov.products.where((p) =>
+                    p.sku.toLowerCase().contains(query) ||
+                    p.nombre.toLowerCase().contains(query)
+                  ).toList();
+                }
+              });
+            },
           ),
-          onSubmitted: (_) => _addBySku(),
-        )),
+        ),
         const SizedBox(width: 10),
         _loadingSku
             ? const SizedBox(width: 36, height: 36,
@@ -133,54 +214,35 @@ Widget build(BuildContext context) {
             : ParfumButton(label: 'Agregar',
                 onPressed: _addBySku, icon: Icons.add),
       ]),
-      const SizedBox(height: 14),
-
-      // Tabla con Scroll Horizontal (Crucial para celulares)
-      ParfumCard(
-        padding: EdgeInsets.zero,
-        child: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: SizedBox(
-            width: 750, // Forzamos un ancho mínimo para que no se amontonen las columnas
-            child: Column(children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                color: AppColors.background,
-                child: const Row(children: [
-                  Expanded(flex: 1, child: _TH('SKU')),
-                  Expanded(flex: 3, child: _TH('Nombre')),
-                  Expanded(flex: 1, child: _TH('Precio')),
-                  Expanded(flex: 2, child: _TH('Cantidad')),
-                  Expanded(flex: 1, child: _TH('Subtotal')),
-                  SizedBox(width: 32),
-                ]),
-              ),
-              const Divider(height: 1),
-              // Aquí limitamos la altura en móvil para que no sea infinita
-              Container(
-                constraints: BoxConstraints(maxHeight: isMobile ? 300 : 500),
-                child: _items.isEmpty
-                    ? const Padding(
-                        padding: EdgeInsets.all(20),
-                        child: Center(child: Text('Sin productos agregados')),
-                      )
-                    : ListView.separated(
-                        shrinkWrap: true,
-                        itemCount: _items.length,
-                        separatorBuilder: (_, __) => const Divider(height: 1),
-                        itemBuilder: (_, i) => _SaleItemRow(
-                          item: _items[i],
-                          onQtyChange: (qty) => setState(() => _items[i].cantidad = qty),
-                          onRemove: () => setState(() => _items.removeAt(i)),
-                        ),
-                      ),
-              ),
-            ]),
+      
+      // 🔥 PANEL DE SUGERENCIAS INTELIGENTE (Aparece solo si hay coincidencias al escribir)
+      if (_sugerencias.isNotEmpty) ...[
+        const SizedBox(height: 4),
+        ParfumCard(
+          padding: EdgeInsets.zero,
+          child: Container(
+            constraints: const BoxConstraints(maxHeight: 200), // Límite de altura con scroll para no deformar la UI
+            child: ListView.separated(
+              shrinkWrap: true,
+              itemCount: _sugerencias.length,
+              separatorBuilder: (_, __) => const Divider(height: 1),
+              itemBuilder: (context, index) {
+                final prod = _sugerencias[index];
+                return ListTile(
+                  dense: true,
+                  leading: const Icon(Icons.shopping_bag_outlined, color: AppColors.clientePrimary, size: 18),
+                  title: Text(prod.nombre, style: const TextStyle(fontWeight: FontWeight.w600)),
+                  subtitle: Text('SKU: ${prod.sku} • Stock: ${prod.isAvailable ? "Disponible" : "Agotado"}', style: const TextStyle(fontSize: 11)),
+                  trailing: Text(CurrencyFormatter.format(prod.precio), style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.clientePrimary)),
+                  onTap: () => _agregarProductoAFormulario(prod), // 👈 Inserta el perfume con un toque
+                );
+              },
+            ),
           ),
         ),
-      ),
-    ],
-  );
+      ],
+      const SizedBox(height: 14),
+]);
 
   // 2. Definimos la sección del Ticket (Resumen)
   Widget rightSection = SizedBox(
