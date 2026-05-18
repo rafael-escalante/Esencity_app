@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:parfum/providers/product_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:parfum/core/constants/app_colors.dart';
 import 'package:parfum/core/constants/app_strings.dart';
 import 'package:parfum/core/utils/formatters.dart';
 import 'package:parfum/models/product_model.dart';
-import 'package:parfum/providers/providers.dart';
 
 import 'package:parfum/widgets/common/common_widgets.dart';
 

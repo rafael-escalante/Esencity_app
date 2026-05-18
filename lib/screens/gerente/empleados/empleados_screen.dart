@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:parfum/models/employee_model.dart';
+import 'package:parfum/providers/employee_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:parfum/core/constants/app_colors.dart';
 import 'package:parfum/core/utils/formatters.dart';
-import 'package:parfum/models/models.dart';
-import 'package:parfum/providers/providers.dart';
 import 'package:parfum/widgets/common/common_widgets.dart';
 
 class EmpleadosScreen extends StatefulWidget {

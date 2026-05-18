@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:parfum/providers/auth_provider.dart';
+import 'package:parfum/providers/cart_provider.dart';
+import 'package:parfum/providers/employee_provider.dart';
+import 'package:parfum/providers/order_provider.dart';
+import 'package:parfum/providers/product_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:parfum/core/router.dart';
 import 'package:parfum/core/theme/app_theme.dart';
-import 'package:parfum/providers/providers.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

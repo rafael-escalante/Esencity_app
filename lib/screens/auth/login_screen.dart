@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:parfum/providers/auth_provider.dart';
+import 'package:parfum/providers/cart_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:parfum/core/constants/app_colors.dart';
 import 'package:parfum/core/constants/app_strings.dart';
 import 'package:parfum/core/utils/formatters.dart';
-import 'package:parfum/providers/providers.dart';
 import 'package:parfum/widgets/common/common_widgets.dart';
 
 class LoginScreen extends StatefulWidget {

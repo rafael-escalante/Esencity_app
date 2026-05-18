@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:parfum/providers/auth_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:parfum/core/constants/app_colors.dart';
-import 'package:parfum/providers/providers.dart';
 import 'package:parfum/widgets/common/common_widgets.dart';
 import 'package:parfum/screens/shared/pedidos_emp/pedidos_empleado_screen.dart';
 import 'package:parfum/screens/shared/buscar/buscar_producto_screen.dart';

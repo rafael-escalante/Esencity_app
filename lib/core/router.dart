@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:provider/provider.dart';
-import 'package:parfum/providers/providers.dart';
+import 'package:parfum/providers/auth_provider.dart';
 import 'package:parfum/screens/auth/login_screen.dart';
 import 'package:parfum/screens/auth/register_screen.dart';
 import 'package:parfum/screens/gerente/gerente_home.dart';
